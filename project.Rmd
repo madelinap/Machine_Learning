@@ -1,0 +1,81 @@
+---
+title: "Coursera MA Project"
+output: html_document
+---
+### Synopsis 
+This is the Coursera Machine Learning Project Assignement.
+Data used in this project are sensor measurements from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Data was recorded in a comma separated file called pml-training.csv.
+
+The goal of this project is to build a model to predict the way the participants performed the exercises using this data.
+
+The output of this assignment is to predict the Classe variable for a series of 20 test samples in a file called pml-testing.csv.
+
+The document covers the steps performed to clean the data, build the model, validate the model, as well as the choices that were made and the assumptions used in the process.
+
+### Read data frames 
+Download the data sets:
+```{r}
+train_name = "train.csv"
+test_name = "test.csv"
+fileUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileUrl, destfile = train_name)
+fileUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileUrl, destfile = test_name)
+train <- data.frame(read.csv(train_name, header=TRUE))
+test_for_prediction <- data.frame(read.csv(test_name, header=TRUE))
+dim(train)
+dim(test_for_prediction)
+```
+Split the data into a training set to train the model on, and a testing set to test the performanace of the model:
+```{r}
+library(caret)
+set.seed(100)
+inTrain = createDataPartition(train$classe, p = 0.7)[[1]]
+training = train[ inTrain,]
+testing = train[-inTrain,]
+```
+
+### Clean data sets
+```{r}
+dim(training)
+#Keep only sensor reading variables
+training <- training[,8:ncol(training)]
+#Remove columns with NA values from the raw training data set
+training <-  training[,colSums(is.na(training)) == 0]
+dim(training)
+#Remove near zero variance variables
+cols <- nearZeroVar(training, saveMetrics = TRUE)
+training <- training[,which(cols$nzv == FALSE)]
+dim(training)
+```
+### Build decision trees model with principal component analysis as preProcess option
+```{r}
+dec_trees_model <- train(classe~ ., method='rpart', preProcess=c('pca'), data= training)
+print(dec_trees_model$finalModel)
+library(rattle)
+fancyRpartPlot(dec_trees_model$finalModel)
+```
+### Build random forest model
+```{r}
+set.seed(100)
+random_forest_model <- train(classe~ ., method='rf', allowParallel=TRUE, data= training)
+print(random_forest_model$finalModel)
+```
+### Cross validation and out of sample error
+This section shows that the random forest model predicts the outcome of the classe variable more accurately than the decsion tree model.
+```{r}
+#Out of sample error for the decision trees model
+mean(predict(dec_trees_model, testing) != testing$classe) * 100
+#Out of sample error for the random forest model
+mean(predict(random_forest_model, testing) != testing$classe) * 100
+#Look at the variable importance for the random forest model
+varImp(random_forest_model, useModel=TRUE)
+
+```
+### Predict values using the best model selected
+```{r}
+#Use random forest model to predict the outcome of the 20 test cases for submission
+predicted_outcomes <- predict(random_forest_model, newdata = test_for_prediction)
+predicted_outcomes
+```
+
