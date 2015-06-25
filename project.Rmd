@@ -55,6 +55,7 @@ print(dec_trees_model$finalModel)
 library(rattle)
 fancyRpartPlot(dec_trees_model$finalModel)
 ```
+
 ### Build random forest model
 ```{r}
 set.seed(100)
